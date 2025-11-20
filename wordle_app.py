@@ -27,7 +27,6 @@ if 'target_word' not in st.session_state:
     st.session_state.game_over = False
     st.session_state.message = ""
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
-    st.session_state.game_started = False # For the click-to-start overlay
 
 # --- 3. HELPER FUNCTIONS ---
 def check_guess(guess, target):
@@ -36,14 +35,12 @@ def check_guess(guess, target):
     for char in target:
         target_chars_count[char] = target_chars_count.get(char, 0) + 1
     
-    # Green Pass
     for i, letter in enumerate(guess):
         if letter == target[i]:
             result[i] = "correct"
             target_chars_count[letter] -= 1
             st.session_state.letter_status[letter] = "correct"
             
-    # Yellow Pass
     for i, letter in enumerate(guess):
         if result[i] == "correct": continue 
         if letter in target_chars_count and target_chars_count[letter] > 0:
@@ -93,20 +90,57 @@ def new_game():
     st.session_state.message = ""
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
 
-def start_game():
-    st.session_state.game_started = True
-
-# --- 4. THE "FLOAT" CSS LAYOUT ---
+# --- 4. CSS STYLING (TITANIUM STRENGTH) ---
 st.markdown("""
 <style>
-    /* Center App */
     .block-container {
         padding-top: 1rem;
         padding-bottom: 5rem;
-        max-width: 600px;
+        max-width: 700px;
     }
 
-    /* GRID STYLES */
+    /* TITANIUM MOBILE FIX 
+       We use !important on the media query to strictly forbid stacking.
+    */
+    div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+        align-items: center !important;
+    }
+
+    div[data-testid="column"] {
+        flex: 1 1 0px !important;
+        min-width: 0 !important;
+        width: auto !important;
+    }
+
+    /* Buttons */
+    .stButton button {
+        padding: 0 !important;
+        height: 50px !important;
+        font-size: 1.2rem !important;
+        font-weight: bold !important;
+        border: none !important;
+        border-radius: 4px !important;
+        width: 100% !important;
+    }
+    
+    /* Mobile Font Sizing */
+    @media (max-width: 600px) {
+        .stButton button {
+            font-size: 14px !important;
+            height: 45px !important;
+            padding: 0 !important;
+        }
+        /* Reduce gap on mobile */
+        div[data-testid="stHorizontalBlock"] {
+            gap: 2px !important;
+        }
+    }
+
+    /* Grid Styles */
     .wordle-row { display: flex; justify-content: center; gap: 4px; margin-bottom: 4px; }
     .letter-box {
         display: flex; justify-content: center; align-items: center;
@@ -119,64 +153,19 @@ st.markdown("""
     .absent  { background-color: #3a3a3c; border: 2px solid #3a3a3c; }
     .empty   { background-color: #c1e1ec; border: 2px solid #c1e1ec; color: black; }
     .active  { background-color: #c1e1ec; border: 2px solid #888; color: black; }
-
-    /* KEYBOARD LAYOUT - THE FIX */
-    /* We target the div wrapping the buttons and make them display inline */
-    div.row-widget.stButton {
-        display: inline-block !important;
-        width: 9% !important; /* Fits 10 keys + margin */
-        margin: 0.5% !important;
-        padding: 0 !important;
-    }
     
-    /* Special Widths for Enter/Backspace */
-    div.row-widget.stButton[data-testid="stButton"] button {
-        width: 100%;
-    }
-    
-    /* Button Styling */
-    .stButton button {
-        padding: 0 !important;
-        height: 50px !important;
-        font-size: 1.2rem !important;
-        font-weight: bold !important;
-        border: none !important;
-        border-radius: 4px !important;
-    }
-    
-    /* Mobile adjustments */
-    @media (max-width: 600px) {
-        .stButton button {
-            font-size: 0.9rem !important;
-            height: 45px !important;
-        }
-        div.row-widget.stButton {
-            width: 9% !important;
-            margin: 0.5% !important;
-        }
-    }
-
-    /* Hide elements that mess up layout */
-    .stDeployButton { display: none; }
-    #MainMenu { visibility: hidden; }
+    /* Hide elements */
+    .stDeployButton, #MainMenu { display: none; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 5. UI RENDERING ---
-
-# CLICK TO START OVERLAY (Fixes PC Focus)
-if not st.session_state.game_started:
-    st.title("Scrabble Wordle")
-    st.info("Click the button below to enable keyboard typing!")
-    st.button("👉 CLICK HERE TO START 👈", on_click=start_game, type="primary", use_container_width=True)
-    st.stop() # Stop rendering the rest until clicked
-
 st.title("Scrabble Wordle")
 
 if st.session_state.message:
     st.warning(st.session_state.message)
 
-# RENDER GAME GRID (HTML)
+# GRID
 grid_html = ""
 rows_rendered = 0
 for guess in st.session_state.guesses:
@@ -204,64 +193,57 @@ while rows_rendered < 6:
     rows_rendered += 1
 st.markdown(grid_html, unsafe_allow_html=True)
 
-# --- 6. KEYBOARD RENDERING (NO COLUMNS - INLINE BLOCK METHOD) ---
+# --- 6. KEYBOARD WITH COLUMNS (FIXED) ---
 st.write("---")
+keys = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
 
-# Helper to render a row of keys
-def render_keys(key_string):
-    # We render buttons sequentially. CSS makes them sit side-by-side.
-    for char in key_string:
+# Row 1
+cols = st.columns(10)
+for i, char in enumerate(keys[0]):
+    with cols[i]:
         if st.button(char, key=char):
             handle_key_click(char)
             st.rerun()
 
-# Row 1
-with st.container():
-    # CSS Hack: Apply centering to this container?
-    # Streamlit containers are hard to target, so we rely on the Inline-Block CSS above
-    st.markdown('<div style="text-align: center;">', unsafe_allow_html=True)
-    render_keys("QWERTYUIOP")
-    st.markdown('</div>', unsafe_allow_html=True)
-
 # Row 2
-with st.container():
-    st.markdown('<div style="text-align: center;">', unsafe_allow_html=True)
-    render_keys("ASDFGHJKL")
-    st.markdown('</div>', unsafe_allow_html=True)
+cols = st.columns([0.4] + [1]*9 + [0.4])
+with cols[0]: st.write("") # Spacer
+for i, char in enumerate(keys[1]):
+    with cols[i+1]:
+        if st.button(char, key=char):
+            handle_key_click(char)
+            st.rerun()
+with cols[-1]: st.write("") # Spacer
 
-# Row 3 (Mix of Enter/Chars/Back)
-with st.container():
-    st.markdown('<div style="text-align: center;">', unsafe_allow_html=True)
-    # Custom manual layout for last row to get Enter/Back sizing right
+# Row 3
+cols = st.columns([1.5] + [1]*7 + [1.5])
+with cols[0]:
     if st.button("ENTER", key="ENTER"):
         handle_key_click("ENTER")
         st.rerun()
-    
-    render_keys("ZXCVBNM")
-    
+for i, char in enumerate(keys[2]):
+    with cols[i+1]:
+        if st.button(char, key=char):
+            handle_key_click(char)
+            st.rerun()
+with cols[-1]:
     if st.button("⌫", key="BACK"):
         handle_key_click("⌫")
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
-# New Game
 if st.session_state.game_over:
     st.write("")
     st.button("🔄 New Game", on_click=new_game, type="primary", use_container_width=True)
 
-# --- 7. JAVASCRIPT & COLORS ---
+# --- 7. JAVASCRIPT ---
 js_code = """
 <script>
     const letterStatus = %s;
     
     function updateUI() {
-        // Target all buttons
         const buttons = Array.from(window.parent.document.querySelectorAll('button'));
-        
         buttons.forEach(btn => {
             const text = btn.innerText.trim();
-            
-            // 1. Color Logic
             if (letterStatus[text]) {
                 if (letterStatus[text] === 'correct') {
                     btn.style.backgroundColor = '#6aaa64';
@@ -274,22 +256,13 @@ js_code = """
                     btn.style.color = 'white';
                 }
             }
-            
-            // 2. Special Sizing Logic for Layout
-            // We manually set widths here to help the CSS if it fails
-            if (text.length === 1) {
-                // Single letter keys
-                btn.style.minWidth = '20px'; 
-            } else if (text === 'ENTER' || text === '⌫') {
-                // Special keys need to be wider
-                btn.parentElement.style.width = '14% !important';
+            if (text === 'ENTER' || text === '⌫') {
                 btn.style.backgroundColor = '#d3d6da';
                 btn.style.color = 'black';
             }
         });
     }
 
-    // KEYBOARD LISTENER
     function handleKey(e) {
         let key = e.key.toUpperCase();
         if (key === 'ENTER') key = 'ENTER';
@@ -305,6 +278,12 @@ js_code = """
     }
 
     window.parent.document.addEventListener('keydown', handleKey);
+    
+    // Aggressive Focus Attempt
+    setTimeout(function() {
+         window.parent.document.body.focus();
+    }, 100);
+
     setInterval(updateUI, 200);
 </script>
 """ % str(st.session_state.letter_status).replace("None", "null")
