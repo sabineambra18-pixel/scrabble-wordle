@@ -26,7 +26,6 @@ if 'target_word' not in st.session_state:
     st.session_state.current_guess = ""
     st.session_state.game_over = False
     st.session_state.message = ""
-    # Status: 'correct', 'present', 'absent', or None
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
 
 # --- 3. GAME FUNCTIONS ---
@@ -99,6 +98,7 @@ def new_game():
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
 
 # --- 4. CSS STYLING ---
+# I removed the fixed width (8vw) from the buttons so ENTER can grow naturally
 st.markdown(f"""
 <style>
     .block-container {{
@@ -132,17 +132,17 @@ st.markdown(f"""
     .empty   {{ background-color: #c1e1ec; border: 2px solid #c1e1ec; color: black; }}
     .active  {{ background-color: #c1e1ec; border: 2px solid #888; color: black; animation: pop 0.1s; }}
     
-    /* Button Tweaks */
+    /* Button Tweaks - UPDATED */
     .stButton button {{
         padding: 0 !important;
-        width: 8vw !important;
+        /* Removed fixed width so Enter/Backspace can grow */
         height: 12vw !important;
-        max-width: 40px !important;
         max-height: 58px !important;
         font-size: 1.2rem !important;
         font-weight: bold !important;
         border-radius: 4px !important;
         border: none !important;
+        width: 100%; /* Let column dictate width */
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -209,6 +209,7 @@ for i, char in enumerate(keys[1]):
 with cols[-1]: st.write("")
 
 # Row 3
+# We give the first and last columns more weight (1.5) for ENTER/BACK
 cols = st.columns([1.5] + [1]*7 + [1.5])
 with cols[0]:
     if st.button("ENTER", key="ENTER", use_container_width=True):
@@ -229,20 +230,18 @@ if st.session_state.game_over:
     st.button("🔄 New Game", on_click=new_game, type="primary", use_container_width=True)
 
 # --- 7. JAVASCRIPT BRIDGE ---
-# This script does two things:
-# 1. Colors the keys based on game state.
-# 2. Listens for physical keyboard events and clicks the virtual buttons.
+# Updated logic to be more robust at finding buttons
 js_code = """
 <script>
     const letterStatus = %s;
     
     function updateUI() {
-        // 1. Color the keys
-        const buttons = window.parent.document.querySelectorAll('button');
+        const buttons = Array.from(window.parent.document.querySelectorAll('button'));
+        
         buttons.forEach(btn => {
-            const text = btn.innerText;
+            // Trim whitespace to fix " ENTER " issues
+            const text = btn.innerText.trim();
             
-            // Color based on status
             if (letterStatus[text]) {
                 if (letterStatus[text] === 'correct') {
                     btn.style.backgroundColor = '#6aaa64';
@@ -251,12 +250,11 @@ js_code = """
                     btn.style.backgroundColor = '#c9b458';
                     btn.style.color = 'white';
                 } else if (letterStatus[text] === 'absent') {
-                    btn.style.backgroundColor = '#3a3a3c'; // Dark Gray
+                    btn.style.backgroundColor = '#3a3a3c'; 
                     btn.style.color = 'white';
                 }
             }
             
-            // Style Enter/Backspace
             if (text === 'ENTER' || text === '⌫') {
                 btn.style.backgroundColor = '#d3d6da';
                 btn.style.color = 'black';
@@ -265,7 +263,8 @@ js_code = """
     }
 
     // 2. Listen for Physical Keyboard
-    document.addEventListener('keydown', function(e) {
+    // We attach to window.parent.document to catch events across the iframe
+    window.parent.document.addEventListener('keydown', function(e) {
         let key = e.key.toUpperCase();
         
         if (key === 'ENTER') key = 'ENTER';
@@ -273,7 +272,7 @@ js_code = """
         
         // Find the matching on-screen button
         const buttons = Array.from(window.parent.document.querySelectorAll('button'));
-        const targetBtn = buttons.find(btn => btn.innerText === key);
+        const targetBtn = buttons.find(btn => btn.innerText.trim() === key);
         
         if (targetBtn) {
             targetBtn.click();
@@ -281,7 +280,7 @@ js_code = """
     });
 
     // Run periodically to catch re-renders
-    setInterval(updateUI, 100);
+    setInterval(updateUI, 200);
 </script>
 """ % str(st.session_state.letter_status).replace("None", "null")
 
