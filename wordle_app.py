@@ -27,6 +27,7 @@ if 'target_word' not in st.session_state:
     st.session_state.game_over = False
     st.session_state.message = ""
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
+    st.session_state.game_started = False
 
 # --- 3. HELPER FUNCTIONS ---
 def check_guess(guess, target):
@@ -90,7 +91,10 @@ def new_game():
     st.session_state.message = ""
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
 
-# --- 4. CSS STYLING (TITANIUM STRENGTH) ---
+def start_game():
+    st.session_state.game_started = True
+
+# --- 4. CSS STYLING ---
 st.markdown("""
 <style>
     .block-container {
@@ -99,48 +103,52 @@ st.markdown("""
         max-width: 700px;
     }
 
-    /* TITANIUM MOBILE FIX 
-       We use !important on the media query to strictly forbid stacking.
-    */
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
+    /* --- KEYBOARD LAYOUT FIX --- */
+    /* We force the horizontal blocks (rows) to NEVER wrap */
+    [data-testid="stHorizontalBlock"] {
         flex-wrap: nowrap !important;
         gap: 4px !important;
-        align-items: center !important;
     }
 
-    div[data-testid="column"] {
-        flex: 1 1 0px !important;
+    /* We force the columns to be able to shrink below their "minimum" width */
+    [data-testid="column"] {
         min-width: 0 !important;
+        flex: 1 1 0 !important;
         width: auto !important;
-    }
-
-    /* Buttons */
-    .stButton button {
         padding: 0 !important;
-        height: 50px !important;
-        font-size: 1.2rem !important;
-        font-weight: bold !important;
-        border: none !important;
-        border-radius: 4px !important;
-        width: 100% !important;
     }
     
-    /* Mobile Font Sizing */
+    /* We force the widget container inside the column to shrink too */
+    [data-testid="element-container"] {
+        min-width: 0 !important;
+    }
+
+    /* BUTTON STYLES */
+    .stButton button {
+        width: 100% !important;
+        height: 55px !important;
+        padding: 0 !important;
+        font-weight: bold !important;
+        font-size: 1.2rem !important;
+        border-radius: 4px !important;
+        border: none !important;
+        margin: 0 !important;
+    }
+
+    /* MOBILE SPECIFIC OVERRIDES */
     @media (max-width: 600px) {
+        /* Make buttons smaller and font tiny on mobile */
         .stButton button {
-            font-size: 14px !important;
             height: 45px !important;
-            padding: 0 !important;
+            font-size: 12px !important;
         }
-        /* Reduce gap on mobile */
-        div[data-testid="stHorizontalBlock"] {
+        /* Reduce gap between keys */
+        [data-testid="stHorizontalBlock"] {
             gap: 2px !important;
         }
     }
 
-    /* Grid Styles */
+    /* GRID STYLES */
     .wordle-row { display: flex; justify-content: center; gap: 4px; margin-bottom: 4px; }
     .letter-box {
         display: flex; justify-content: center; align-items: center;
@@ -153,13 +161,21 @@ st.markdown("""
     .absent  { background-color: #3a3a3c; border: 2px solid #3a3a3c; }
     .empty   { background-color: #c1e1ec; border: 2px solid #c1e1ec; color: black; }
     .active  { background-color: #c1e1ec; border: 2px solid #888; color: black; }
-    
-    /* Hide elements */
+
+    /* Hide visual noise */
     .stDeployButton, #MainMenu { display: none; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 5. UI RENDERING ---
+
+# START SCREEN
+if not st.session_state.game_started:
+    st.title("Scrabble Wordle")
+    st.info("Tap to enable keyboard!")
+    st.button("👉 START GAME 👈", on_click=start_game, type="primary", use_container_width=True)
+    st.stop()
+
 st.title("Scrabble Wordle")
 
 if st.session_state.message:
@@ -193,7 +209,7 @@ while rows_rendered < 6:
     rows_rendered += 1
 st.markdown(grid_html, unsafe_allow_html=True)
 
-# --- 6. KEYBOARD WITH COLUMNS (FIXED) ---
+# --- 6. KEYBOARD RENDERING ---
 st.write("---")
 keys = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
 
@@ -207,13 +223,13 @@ for i, char in enumerate(keys[0]):
 
 # Row 2
 cols = st.columns([0.4] + [1]*9 + [0.4])
-with cols[0]: st.write("") # Spacer
+with cols[0]: st.write("")
 for i, char in enumerate(keys[1]):
     with cols[i+1]:
         if st.button(char, key=char):
             handle_key_click(char)
             st.rerun()
-with cols[-1]: st.write("") # Spacer
+with cols[-1]: st.write("")
 
 # Row 3
 cols = st.columns([1.5] + [1]*7 + [1.5])
@@ -235,7 +251,7 @@ if st.session_state.game_over:
     st.write("")
     st.button("🔄 New Game", on_click=new_game, type="primary", use_container_width=True)
 
-# --- 7. JAVASCRIPT ---
+# --- 7. JAVASCRIPT BRIDGE ---
 js_code = """
 <script>
     const letterStatus = %s;
@@ -244,6 +260,7 @@ js_code = """
         const buttons = Array.from(window.parent.document.querySelectorAll('button'));
         buttons.forEach(btn => {
             const text = btn.innerText.trim();
+            
             if (letterStatus[text]) {
                 if (letterStatus[text] === 'correct') {
                     btn.style.backgroundColor = '#6aaa64';
@@ -279,11 +296,8 @@ js_code = """
 
     window.parent.document.addEventListener('keydown', handleKey);
     
-    // Aggressive Focus Attempt
-    setTimeout(function() {
-         window.parent.document.body.focus();
-    }, 100);
-
+    // Keep focus on the body
+    window.parent.document.body.focus();
     setInterval(updateUI, 200);
 </script>
 """ % str(st.session_state.letter_status).replace("None", "null")
