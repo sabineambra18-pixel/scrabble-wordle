@@ -18,6 +18,7 @@ if 'word_list' not in st.session_state:
         found_words = re.findall(r'\b[A-Z]{5}\b', page_text)
         st.session_state.word_list = sorted(list(set(found_words)))
     except:
+        # Fallback if site is down
         st.session_state.word_list = ["APPLE", "BRAIN", "CRANE", "DREAM", "EAGLE", "FEAST", "GRAPE"]
 
 if 'target_word' not in st.session_state:
@@ -32,6 +33,7 @@ if 'target_word' not in st.session_state:
 def check_guess(guess, target):
     result = ["absent"] * 5
     target_chars_count = {}
+    # Count target characters
     for char in target:
         target_chars_count[char] = target_chars_count.get(char, 0) + 1
     
@@ -97,7 +99,7 @@ def new_game():
     st.session_state.message = ""
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
 
-# --- 4. CSS STYLING (THE NUCLEAR FIX) ---
+# --- 4. CSS STYLING (AGGRESSIVE MOBILE LAYOUT) ---
 st.markdown(f"""
 <style>
     .block-container {{
@@ -106,33 +108,34 @@ st.markdown(f"""
         max-width: 700px;
     }}
 
-    /* --- NUCLEAR MOBILE KEYBOARD FIX --- */
-    /* We target the column divs directly and force them to NOT stack */
+    /* --- MOBILE KEYBOARD FIX --- */
+    /* We use !important to override Streamlit's default stacking behavior */
     @media (max-width: 800px) {{
-        /* 1. Force the container (row) to keep items in a line */
+        /* Force the container to lay out items horizontally */
         div[data-testid="stHorizontalBlock"] {{
             display: flex !important;
-            flex-wrap: nowrap !important; /* Crucial: Don't wrap to next line */
+            flex-direction: row !important; /* This stops the stacking */
+            flex-wrap: nowrap !important;
             gap: 2px !important;
         }}
 
-        /* 2. Force the columns (keys) to shrink and share space */
+        /* Force columns to fit on one line */
         div[data-testid="column"] {{
-            flex: 1 1 0px !important; /* Grow/Shrink equally, start at 0 width */
+            flex: 1 !important;
             width: auto !important;
-            min-width: 0px !important; /* Allow it to shrink tiny if needed */
+            min-width: 0px !important;
         }}
         
-        /* 3. Make buttons smaller so they actually fit */
+        /* Shrink buttons to fit */
         .stButton button {{
             padding: 0 !important;
             margin: 0 !important;
-            font-size: 0.7rem !important; /* Smaller font for mobile */
+            font-size: 12px !important;
             height: 45px !important;
         }}
     }}
 
-    /* Standard Button Styling (PC) */
+    /* PC Button Styling */
     .stButton button {{
         padding: 0 !important;
         height: 55px;
@@ -178,11 +181,11 @@ st.title("Scrabble Wordle")
 if st.session_state.message:
     st.info(st.session_state.message)
 
-# GRID
+# RENDER GRID
 grid_html = ""
 rows_rendered = 0
 
-# Past Guesses
+# 1. Past Guesses
 for guess in st.session_state.guesses:
     grid_html += '<div class="wordle-row">'
     statuses = check_guess(guess, st.session_state.target_word)
@@ -191,7 +194,7 @@ for guess in st.session_state.guesses:
     grid_html += '</div>'
     rows_rendered += 1
 
-# Active Row
+# 2. Active Row
 if not st.session_state.game_over and rows_rendered < 6:
     grid_html += '<div class="wordle-row">'
     for char in st.session_state.current_guess:
@@ -201,7 +204,7 @@ if not st.session_state.game_over and rows_rendered < 6:
     grid_html += '</div>'
     rows_rendered += 1
 
-# Empty Rows
+# 3. Empty Rows
 while rows_rendered < 6:
     grid_html += '<div class="wordle-row">'
     for _ in range(5):
@@ -253,11 +256,12 @@ if st.session_state.game_over:
     st.write("")
     st.button("🔄 New Game", on_click=new_game, type="primary", use_container_width=True)
 
-# --- 7. JAVASCRIPT BRIDGE & AUTO-FOCUS ---
+# --- 7. JAVASCRIPT BRIDGE & DUAL-FOCUS SYSTEM ---
 js_code = """
 <script>
     const letterStatus = %s;
     
+    // 1. Color the keys based on status
     function updateUI() {
         const buttons = Array.from(window.parent.document.querySelectorAll('button'));
         buttons.forEach(btn => {
@@ -281,26 +285,35 @@ js_code = """
         });
     }
 
-    // KEYBOARD LISTENER
-    window.parent.document.addEventListener('keydown', function(e) {
+    // 2. The Key Listener Function
+    function handleKeydown(e) {
         let key = e.key.toUpperCase();
         if (key === 'ENTER') key = 'ENTER';
         if (key === 'BACKSPACE') key = '⌫';
         
+        // Find the button in the parent document
         const buttons = Array.from(window.parent.document.querySelectorAll('button'));
         const targetBtn = buttons.find(btn => btn.innerText.trim() === key);
+        
         if (targetBtn) {
             targetBtn.click();
-            e.preventDefault(); 
+            e.preventDefault();
+            e.stopPropagation();
         }
-    });
-    
-    // AUTO-FOCUS ATTEMPT
-    // This forces the window to be active so you can type immediately
-    setTimeout(function() {
-        window.parent.document.body.focus();
-    }, 500);
+    }
 
+    // 3. Attach listeners to BOTH the iframe and the parent window
+    // This ensures we catch the key press regardless of which "frame" has focus
+    document.addEventListener('keydown', handleKeydown);
+    window.parent.document.addEventListener('keydown', handleKeydown);
+
+    // 4. Attempt to set focus to the parent window so user can type immediately
+    // (Note: Modern browsers may still require one click for security)
+    try {
+        window.parent.focus();
+    } catch (e) { console.log("Focus blocked"); }
+
+    // Loop to keep UI updated
     setInterval(updateUI, 200);
 </script>
 """ % str(st.session_state.letter_status).replace("None", "null")
