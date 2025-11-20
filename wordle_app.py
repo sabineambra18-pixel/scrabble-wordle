@@ -97,7 +97,7 @@ def new_game():
     st.session_state.message = ""
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
 
-# --- 4. CSS STYLING ---
+# --- 4. CSS STYLING (Aggressive Mobile Fix) ---
 st.markdown(f"""
 <style>
     /* Main Container */
@@ -107,17 +107,25 @@ st.markdown(f"""
         max-width: 700px;
     }}
 
-    /* --- FORCE MOBILE KEYBOARD TO STAY HORIZONTAL --- */
-    /* This forces Streamlit columns to share space instead of stacking on mobile */
+    /* --- MOBILE KEYBOARD FIX --- */
+    /* This forces the keyboard rows to stay horizontal on mobile */
     @media (max-width: 768px) {{
-        div[data-testid="column"] {{
-            width: auto !important;
-            flex: 1 1 auto !important;
-            min-width: 0 !important;
-            padding: 0 1px !important; /* Tighter spacing on phone */
-        }}
+        /* Find the container that holds the columns and force it to be a row */
         div[data-testid="stHorizontalBlock"] {{
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            overflow-x: visible !important;
             gap: 2px !important;
+        }}
+        
+        /* Force the individual columns (buttons) to shrink to fit */
+        div[data-testid="column"] {{
+            flex: 1 !important;
+            min-width: 0px !important;
+            width: auto !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }}
     }}
 
@@ -153,16 +161,19 @@ st.markdown(f"""
         padding: 0 !important;
         height: 12vw !important;
         max-height: 58px !important;
-        font-size: 1.2rem !important;
+        font-size: 1.1rem !important;
         font-weight: bold !important;
         border-radius: 4px !important;
         border: none !important;
         width: 100%; 
+        margin: 0 !important;
     }}
-    /* Make text smaller on mobile so "ENTER" fits */
+    /* Smaller text for mobile buttons so they fit side-by-side */
     @media (max-width: 500px) {{
         .stButton button {{
             font-size: 0.8rem !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
         }}
     }}
 </style>
@@ -249,7 +260,7 @@ if st.session_state.game_over:
     st.write("")
     st.button("🔄 New Game", on_click=new_game, type="primary", use_container_width=True)
 
-# --- 7. JAVASCRIPT BRIDGE ---
+# --- 7. JAVASCRIPT BRIDGE & AUTO-FOCUS ---
 js_code = """
 <script>
     const letterStatus = %s;
@@ -277,6 +288,7 @@ js_code = """
         });
     }
 
+    // KEYBOARD LISTENER
     window.parent.document.addEventListener('keydown', function(e) {
         let key = e.key.toUpperCase();
         if (key === 'ENTER') key = 'ENTER';
@@ -286,8 +298,14 @@ js_code = """
         const targetBtn = buttons.find(btn => btn.innerText.trim() === key);
         if (targetBtn) {
             targetBtn.click();
+            e.preventDefault(); // Prevent default scrolling/actions
         }
     });
+    
+    // AUTO-FOCUS ATTEMPT
+    // Try to focus the parent window immediately so user doesn't have to click
+    window.parent.focus();
+    window.parent.document.body.focus();
 
     setInterval(updateUI, 200);
 </script>
