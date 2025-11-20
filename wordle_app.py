@@ -5,10 +5,10 @@ import re
 import random
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURATION & STYLES ---
-st.set_page_config(page_title="Scrabble Wordle", page_icon="🟩")
+# --- 1. CONFIGURATION ---
+st.set_page_config(page_title="Scrabble Wordle", page_icon="🟩", layout="centered")
 
-# --- 2. CORE LOGIC & STATE ---
+# --- 2. CORE STATE & LOGIC ---
 if 'word_list' not in st.session_state:
     try:
         url = "https://scrabble.collinsdictionary.com/word-lists/five-letter-words-in-scrabble/"
@@ -18,7 +18,6 @@ if 'word_list' not in st.session_state:
         found_words = re.findall(r'\b[A-Z]{5}\b', page_text)
         st.session_state.word_list = sorted(list(set(found_words)))
     except:
-        # Fallback if site is down
         st.session_state.word_list = ["APPLE", "BRAIN", "CRANE", "DREAM", "EAGLE", "FEAST", "GRAPE"]
 
 if 'target_word' not in st.session_state:
@@ -28,26 +27,25 @@ if 'target_word' not in st.session_state:
     st.session_state.game_over = False
     st.session_state.message = ""
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
+    st.session_state.game_started = False # For the click-to-start overlay
 
-# --- 3. GAME FUNCTIONS ---
+# --- 3. HELPER FUNCTIONS ---
 def check_guess(guess, target):
     result = ["absent"] * 5
     target_chars_count = {}
-    # Count target characters
     for char in target:
         target_chars_count[char] = target_chars_count.get(char, 0) + 1
     
-    # First pass: Greens
+    # Green Pass
     for i, letter in enumerate(guess):
         if letter == target[i]:
             result[i] = "correct"
             target_chars_count[letter] -= 1
             st.session_state.letter_status[letter] = "correct"
             
-    # Second pass: Yellows
+    # Yellow Pass
     for i, letter in enumerate(guess):
-        if result[i] == "correct":
-            continue 
+        if result[i] == "correct": continue 
         if letter in target_chars_count and target_chars_count[letter] > 0:
             result[i] = "present"
             target_chars_count[letter] -= 1
@@ -59,13 +57,9 @@ def check_guess(guess, target):
     return result
 
 def handle_key_click(key):
-    if st.session_state.game_over:
-        return
-
-    if key == "ENTER":
-        submit_guess()
-    elif key == "⌫":
-        st.session_state.current_guess = st.session_state.current_guess[:-1]
+    if st.session_state.game_over: return
+    if key == "ENTER": submit_guess()
+    elif key == "⌫": st.session_state.current_guess = st.session_state.current_guess[:-1]
     else:
         if len(st.session_state.current_guess) < 5:
             st.session_state.current_guess += key
@@ -99,93 +93,92 @@ def new_game():
     st.session_state.message = ""
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
 
-# --- 4. CSS STYLING (AGGRESSIVE MOBILE LAYOUT) ---
-st.markdown(f"""
+def start_game():
+    st.session_state.game_started = True
+
+# --- 4. THE "FLOAT" CSS LAYOUT ---
+st.markdown("""
 <style>
-    .block-container {{
+    /* Center App */
+    .block-container {
         padding-top: 1rem;
         padding-bottom: 5rem;
-        max-width: 700px;
-    }}
+        max-width: 600px;
+    }
 
-    /* --- MOBILE KEYBOARD FIX --- */
-    /* We use !important to override Streamlit's default stacking behavior */
-    @media (max-width: 800px) {{
-        /* Force the container to lay out items horizontally */
-        div[data-testid="stHorizontalBlock"] {{
-            display: flex !important;
-            flex-direction: row !important; /* This stops the stacking */
-            flex-wrap: nowrap !important;
-            gap: 2px !important;
-        }}
+    /* GRID STYLES */
+    .wordle-row { display: flex; justify-content: center; gap: 4px; margin-bottom: 4px; }
+    .letter-box {
+        display: flex; justify-content: center; align-items: center;
+        width: 14vw; height: 14vw; max-width: 52px; max-height: 52px;
+        font-size: 1.8rem; font-weight: bold; color: white;
+        text-transform: uppercase; border-radius: 4px;
+    }
+    .correct { background-color: #6aaa64; border: 2px solid #6aaa64; }
+    .present { background-color: #c9b458; border: 2px solid #c9b458; }
+    .absent  { background-color: #3a3a3c; border: 2px solid #3a3a3c; }
+    .empty   { background-color: #c1e1ec; border: 2px solid #c1e1ec; color: black; }
+    .active  { background-color: #c1e1ec; border: 2px solid #888; color: black; }
 
-        /* Force columns to fit on one line */
-        div[data-testid="column"] {{
-            flex: 1 !important;
-            width: auto !important;
-            min-width: 0px !important;
-        }}
-        
-        /* Shrink buttons to fit */
-        .stButton button {{
-            padding: 0 !important;
-            margin: 0 !important;
-            font-size: 12px !important;
-            height: 45px !important;
-        }}
-    }}
-
-    /* PC Button Styling */
-    .stButton button {{
+    /* KEYBOARD LAYOUT - THE FIX */
+    /* We target the div wrapping the buttons and make them display inline */
+    div.row-widget.stButton {
+        display: inline-block !important;
+        width: 9% !important; /* Fits 10 keys + margin */
+        margin: 0.5% !important;
         padding: 0 !important;
-        height: 55px;
-        font-size: 1.2rem;
-        font-weight: bold;
-        border-radius: 4px;
-        border: none;
+    }
+    
+    /* Special Widths for Enter/Backspace */
+    div.row-widget.stButton[data-testid="stButton"] button {
         width: 100%;
-    }}
+    }
+    
+    /* Button Styling */
+    .stButton button {
+        padding: 0 !important;
+        height: 50px !important;
+        font-size: 1.2rem !important;
+        font-weight: bold !important;
+        border: none !important;
+        border-radius: 4px !important;
+    }
+    
+    /* Mobile adjustments */
+    @media (max-width: 600px) {
+        .stButton button {
+            font-size: 0.9rem !important;
+            height: 45px !important;
+        }
+        div.row-widget.stButton {
+            width: 9% !important;
+            margin: 0.5% !important;
+        }
+    }
 
-    /* Grid Styles */
-    .wordle-row {{
-        display: flex;
-        justify-content: center;
-        gap: 5px;
-        margin-bottom: 5px;
-    }}
-    .letter-box {{
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 14vw;  
-        height: 14vw;
-        max-width: 55px;
-        max-height: 55px;
-        font-size: 1.8rem;
-        font-weight: bold;
-        color: white;
-        text-transform: uppercase;
-        border-radius: 4px;
-    }}
-    .correct {{ background-color: #6aaa64; border: 2px solid #6aaa64; }}
-    .present {{ background-color: #c9b458; border: 2px solid #c9b458; }}
-    .absent  {{ background-color: #3a3a3c; border: 2px solid #3a3a3c; }}
-    .empty   {{ background-color: #c1e1ec; border: 2px solid #c1e1ec; color: black; }}
-    .active  {{ background-color: #c1e1ec; border: 2px solid #888; color: black; animation: pop 0.1s; }}
+    /* Hide elements that mess up layout */
+    .stDeployButton { display: none; }
+    #MainMenu { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 5. UI RENDERING ---
+
+# CLICK TO START OVERLAY (Fixes PC Focus)
+if not st.session_state.game_started:
+    st.title("Scrabble Wordle")
+    st.info("Click the button below to enable keyboard typing!")
+    st.button("👉 CLICK HERE TO START 👈", on_click=start_game, type="primary", use_container_width=True)
+    st.stop() # Stop rendering the rest until clicked
+
 st.title("Scrabble Wordle")
 
 if st.session_state.message:
-    st.info(st.session_state.message)
+    st.warning(st.session_state.message)
 
-# RENDER GRID
+# RENDER GAME GRID (HTML)
 grid_html = ""
 rows_rendered = 0
-
-# 1. Past Guesses
 for guess in st.session_state.guesses:
     grid_html += '<div class="wordle-row">'
     statuses = check_guess(guess, st.session_state.target_word)
@@ -194,7 +187,6 @@ for guess in st.session_state.guesses:
     grid_html += '</div>'
     rows_rendered += 1
 
-# 2. Active Row
 if not st.session_state.game_over and rows_rendered < 6:
     grid_html += '<div class="wordle-row">'
     for char in st.session_state.current_guess:
@@ -204,68 +196,72 @@ if not st.session_state.game_over and rows_rendered < 6:
     grid_html += '</div>'
     rows_rendered += 1
 
-# 3. Empty Rows
 while rows_rendered < 6:
     grid_html += '<div class="wordle-row">'
     for _ in range(5):
         grid_html += '<div class="letter-box empty"></div>'
     grid_html += '</div>'
     rows_rendered += 1
-
 st.markdown(grid_html, unsafe_allow_html=True)
 
-# --- 6. KEYBOARD RENDERING ---
-st.write("")
-keys = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
+# --- 6. KEYBOARD RENDERING (NO COLUMNS - INLINE BLOCK METHOD) ---
+st.write("---")
+
+# Helper to render a row of keys
+def render_keys(key_string):
+    # We render buttons sequentially. CSS makes them sit side-by-side.
+    for char in key_string:
+        if st.button(char, key=char):
+            handle_key_click(char)
+            st.rerun()
 
 # Row 1
-cols = st.columns(10)
-for i, char in enumerate(keys[0]):
-    with cols[i]:
-        if st.button(char, key=char, use_container_width=True):
-            handle_key_click(char)
-            st.rerun()
+with st.container():
+    # CSS Hack: Apply centering to this container?
+    # Streamlit containers are hard to target, so we rely on the Inline-Block CSS above
+    st.markdown('<div style="text-align: center;">', unsafe_allow_html=True)
+    render_keys("QWERTYUIOP")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # Row 2
-cols = st.columns([0.5] + [1]*9 + [0.5])
-with cols[0]: st.write("")
-for i, char in enumerate(keys[1]):
-    with cols[i+1]:
-        if st.button(char, key=char, use_container_width=True):
-            handle_key_click(char)
-            st.rerun()
-with cols[-1]: st.write("")
+with st.container():
+    st.markdown('<div style="text-align: center;">', unsafe_allow_html=True)
+    render_keys("ASDFGHJKL")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# Row 3
-cols = st.columns([1.5] + [1]*7 + [1.5])
-with cols[0]:
-    if st.button("ENTER", key="ENTER", use_container_width=True):
+# Row 3 (Mix of Enter/Chars/Back)
+with st.container():
+    st.markdown('<div style="text-align: center;">', unsafe_allow_html=True)
+    # Custom manual layout for last row to get Enter/Back sizing right
+    if st.button("ENTER", key="ENTER"):
         handle_key_click("ENTER")
         st.rerun()
-for i, char in enumerate(keys[2]):
-    with cols[i+1]:
-        if st.button(char, key=char, use_container_width=True):
-            handle_key_click(char)
-            st.rerun()
-with cols[-1]:
-    if st.button("⌫", key="BACK", use_container_width=True):
+    
+    render_keys("ZXCVBNM")
+    
+    if st.button("⌫", key="BACK"):
         handle_key_click("⌫")
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
+# New Game
 if st.session_state.game_over:
     st.write("")
     st.button("🔄 New Game", on_click=new_game, type="primary", use_container_width=True)
 
-# --- 7. JAVASCRIPT BRIDGE & DUAL-FOCUS SYSTEM ---
+# --- 7. JAVASCRIPT & COLORS ---
 js_code = """
 <script>
     const letterStatus = %s;
     
-    // 1. Color the keys based on status
     function updateUI() {
+        // Target all buttons
         const buttons = Array.from(window.parent.document.querySelectorAll('button'));
+        
         buttons.forEach(btn => {
             const text = btn.innerText.trim();
+            
+            // 1. Color Logic
             if (letterStatus[text]) {
                 if (letterStatus[text] === 'correct') {
                     btn.style.backgroundColor = '#6aaa64';
@@ -278,42 +274,37 @@ js_code = """
                     btn.style.color = 'white';
                 }
             }
-            if (text === 'ENTER' || text === '⌫') {
+            
+            // 2. Special Sizing Logic for Layout
+            // We manually set widths here to help the CSS if it fails
+            if (text.length === 1) {
+                // Single letter keys
+                btn.style.minWidth = '20px'; 
+            } else if (text === 'ENTER' || text === '⌫') {
+                // Special keys need to be wider
+                btn.parentElement.style.width = '14% !important';
                 btn.style.backgroundColor = '#d3d6da';
                 btn.style.color = 'black';
             }
         });
     }
 
-    // 2. The Key Listener Function
-    function handleKeydown(e) {
+    // KEYBOARD LISTENER
+    function handleKey(e) {
         let key = e.key.toUpperCase();
         if (key === 'ENTER') key = 'ENTER';
         if (key === 'BACKSPACE') key = '⌫';
         
-        // Find the button in the parent document
         const buttons = Array.from(window.parent.document.querySelectorAll('button'));
         const targetBtn = buttons.find(btn => btn.innerText.trim() === key);
         
         if (targetBtn) {
             targetBtn.click();
             e.preventDefault();
-            e.stopPropagation();
         }
     }
 
-    // 3. Attach listeners to BOTH the iframe and the parent window
-    // This ensures we catch the key press regardless of which "frame" has focus
-    document.addEventListener('keydown', handleKeydown);
-    window.parent.document.addEventListener('keydown', handleKeydown);
-
-    // 4. Attempt to set focus to the parent window so user can type immediately
-    // (Note: Modern browsers may still require one click for security)
-    try {
-        window.parent.focus();
-    } catch (e) { console.log("Focus blocked"); }
-
-    // Loop to keep UI updated
+    window.parent.document.addEventListener('keydown', handleKey);
     setInterval(updateUI, 200);
 </script>
 """ % str(st.session_state.letter_status).replace("None", "null")
