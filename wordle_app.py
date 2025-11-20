@@ -97,36 +97,50 @@ def new_game():
     st.session_state.message = ""
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
 
-# --- 4. CSS STYLING (Aggressive Mobile Fix) ---
+# --- 4. CSS STYLING (THE NUCLEAR FIX) ---
 st.markdown(f"""
 <style>
-    /* Main Container */
     .block-container {{
         padding-top: 1rem;
         padding-bottom: 5rem;
         max-width: 700px;
     }}
 
-    /* --- MOBILE KEYBOARD FIX --- */
-    /* This forces the keyboard rows to stay horizontal on mobile */
-    @media (max-width: 768px) {{
-        /* Find the container that holds the columns and force it to be a row */
+    /* --- NUCLEAR MOBILE KEYBOARD FIX --- */
+    /* We target the column divs directly and force them to NOT stack */
+    @media (max-width: 800px) {{
+        /* 1. Force the container (row) to keep items in a line */
         div[data-testid="stHorizontalBlock"] {{
             display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            overflow-x: visible !important;
+            flex-wrap: nowrap !important; /* Crucial: Don't wrap to next line */
             gap: 2px !important;
         }}
-        
-        /* Force the individual columns (buttons) to shrink to fit */
+
+        /* 2. Force the columns (keys) to shrink and share space */
         div[data-testid="column"] {{
-            flex: 1 !important;
-            min-width: 0px !important;
+            flex: 1 1 0px !important; /* Grow/Shrink equally, start at 0 width */
             width: auto !important;
+            min-width: 0px !important; /* Allow it to shrink tiny if needed */
+        }}
+        
+        /* 3. Make buttons smaller so they actually fit */
+        .stButton button {{
             padding: 0 !important;
             margin: 0 !important;
+            font-size: 0.7rem !important; /* Smaller font for mobile */
+            height: 45px !important;
         }}
+    }}
+
+    /* Standard Button Styling (PC) */
+    .stButton button {{
+        padding: 0 !important;
+        height: 55px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        border-radius: 4px;
+        border: none;
+        width: 100%;
     }}
 
     /* Grid Styles */
@@ -155,27 +169,6 @@ st.markdown(f"""
     .absent  {{ background-color: #3a3a3c; border: 2px solid #3a3a3c; }}
     .empty   {{ background-color: #c1e1ec; border: 2px solid #c1e1ec; color: black; }}
     .active  {{ background-color: #c1e1ec; border: 2px solid #888; color: black; animation: pop 0.1s; }}
-    
-    /* Button Styling */
-    .stButton button {{
-        padding: 0 !important;
-        height: 12vw !important;
-        max-height: 58px !important;
-        font-size: 1.1rem !important;
-        font-weight: bold !important;
-        border-radius: 4px !important;
-        border: none !important;
-        width: 100%; 
-        margin: 0 !important;
-    }}
-    /* Smaller text for mobile buttons so they fit side-by-side */
-    @media (max-width: 500px) {{
-        .stButton button {{
-            font-size: 0.8rem !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-        }}
-    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -298,14 +291,15 @@ js_code = """
         const targetBtn = buttons.find(btn => btn.innerText.trim() === key);
         if (targetBtn) {
             targetBtn.click();
-            e.preventDefault(); // Prevent default scrolling/actions
+            e.preventDefault(); 
         }
     });
     
     // AUTO-FOCUS ATTEMPT
-    // Try to focus the parent window immediately so user doesn't have to click
-    window.parent.focus();
-    window.parent.document.body.focus();
+    // This forces the window to be active so you can type immediately
+    setTimeout(function() {
+        window.parent.document.body.focus();
+    }, 500);
 
     setInterval(updateUI, 200);
 </script>
