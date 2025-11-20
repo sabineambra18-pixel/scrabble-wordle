@@ -98,14 +98,30 @@ def new_game():
     st.session_state.letter_status = {chr(i): None for i in range(65, 91)}
 
 # --- 4. CSS STYLING ---
-# I removed the fixed width (8vw) from the buttons so ENTER can grow naturally
 st.markdown(f"""
 <style>
+    /* Main Container */
     .block-container {{
         padding-top: 1rem;
         padding-bottom: 5rem;
         max-width: 700px;
     }}
+
+    /* --- FORCE MOBILE KEYBOARD TO STAY HORIZONTAL --- */
+    /* This forces Streamlit columns to share space instead of stacking on mobile */
+    @media (max-width: 768px) {{
+        div[data-testid="column"] {{
+            width: auto !important;
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            padding: 0 1px !important; /* Tighter spacing on phone */
+        }}
+        div[data-testid="stHorizontalBlock"] {{
+            gap: 2px !important;
+        }}
+    }}
+
+    /* Grid Styles */
     .wordle-row {{
         display: flex;
         justify-content: center;
@@ -132,17 +148,22 @@ st.markdown(f"""
     .empty   {{ background-color: #c1e1ec; border: 2px solid #c1e1ec; color: black; }}
     .active  {{ background-color: #c1e1ec; border: 2px solid #888; color: black; animation: pop 0.1s; }}
     
-    /* Button Tweaks - UPDATED */
+    /* Button Styling */
     .stButton button {{
         padding: 0 !important;
-        /* Removed fixed width so Enter/Backspace can grow */
         height: 12vw !important;
         max-height: 58px !important;
         font-size: 1.2rem !important;
         font-weight: bold !important;
         border-radius: 4px !important;
         border: none !important;
-        width: 100%; /* Let column dictate width */
+        width: 100%; 
+    }}
+    /* Make text smaller on mobile so "ENTER" fits */
+    @media (max-width: 500px) {{
+        .stButton button {{
+            font-size: 0.8rem !important;
+        }}
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -209,7 +230,6 @@ for i, char in enumerate(keys[1]):
 with cols[-1]: st.write("")
 
 # Row 3
-# We give the first and last columns more weight (1.5) for ENTER/BACK
 cols = st.columns([1.5] + [1]*7 + [1.5])
 with cols[0]:
     if st.button("ENTER", key="ENTER", use_container_width=True):
@@ -230,18 +250,14 @@ if st.session_state.game_over:
     st.button("🔄 New Game", on_click=new_game, type="primary", use_container_width=True)
 
 # --- 7. JAVASCRIPT BRIDGE ---
-# Updated logic to be more robust at finding buttons
 js_code = """
 <script>
     const letterStatus = %s;
     
     function updateUI() {
         const buttons = Array.from(window.parent.document.querySelectorAll('button'));
-        
         buttons.forEach(btn => {
-            // Trim whitespace to fix " ENTER " issues
             const text = btn.innerText.trim();
-            
             if (letterStatus[text]) {
                 if (letterStatus[text] === 'correct') {
                     btn.style.backgroundColor = '#6aaa64';
@@ -254,7 +270,6 @@ js_code = """
                     btn.style.color = 'white';
                 }
             }
-            
             if (text === 'ENTER' || text === '⌫') {
                 btn.style.backgroundColor = '#d3d6da';
                 btn.style.color = 'black';
@@ -262,24 +277,18 @@ js_code = """
         });
     }
 
-    // 2. Listen for Physical Keyboard
-    // We attach to window.parent.document to catch events across the iframe
     window.parent.document.addEventListener('keydown', function(e) {
         let key = e.key.toUpperCase();
-        
         if (key === 'ENTER') key = 'ENTER';
         if (key === 'BACKSPACE') key = '⌫';
         
-        // Find the matching on-screen button
         const buttons = Array.from(window.parent.document.querySelectorAll('button'));
         const targetBtn = buttons.find(btn => btn.innerText.trim() === key);
-        
         if (targetBtn) {
             targetBtn.click();
         }
     });
 
-    // Run periodically to catch re-renders
     setInterval(updateUI, 200);
 </script>
 """ % str(st.session_state.letter_status).replace("None", "null")
