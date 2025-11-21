@@ -99,7 +99,7 @@ st.markdown("""
 <style>
     .block-container {
         padding-top: 1rem;
-        padding-bottom: 5rem;
+        padding-bottom: 1rem;
         max-width: 700px;
     }
 
@@ -140,6 +140,15 @@ st.markdown("""
         height: 50px !important;
         font-weight: bold !important;
         font-size: 1.1rem !important;
+    }
+
+    /* Reduce spacing */
+    .stMarkdown {
+        margin-bottom: 0.5rem !important;
+    }
+    
+    hr {
+        margin: 0.5rem 0 !important;
     }
 
     /* Hide visual noise */
@@ -190,7 +199,6 @@ while rows_rendered < 6:
 st.markdown(grid_html, unsafe_allow_html=True)
 
 # --- 6. KEYBOARD RENDERING ---
-st.write("---")
 
 # Create a container that we'll hide completely
 hidden_container = st.container()
@@ -251,7 +259,7 @@ keyboard_html = """
 </div>
 <style>
     .keyboard {
-        margin: 20px auto;
+        margin: 10px auto 0;
         max-width: 500px;
         user-select: none;
     }
@@ -294,6 +302,9 @@ keyboard_html = """
         .keyboard-row {
             gap: 3px;
             margin-bottom: 4px;
+        }
+        .keyboard {
+            margin: 5px auto 0;
         }
     }
     @media (max-width: 400px) {
