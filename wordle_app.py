@@ -117,8 +117,25 @@ st.markdown("""
     .empty   { background-color: #c1e1ec; border: 2px solid #c1e1ec; color: black; }
     .active  { background-color: #c1e1ec; border: 2px solid #888; color: black; }
 
-    /* NEW GAME BUTTON */
-    .stButton button {
+    /* HIDE HIDDEN BUTTONS */
+    button[kind="secondary"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        width: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        position: absolute !important;
+    }
+    
+    [data-testid="column"] {
+        display: none !important;
+    }
+
+    /* NEW GAME BUTTON - Keep primary buttons visible */
+    button[kind="primary"] {
+        display: block !important;
+        visibility: visible !important;
         width: 100% !important;
         height: 50px !important;
         font-weight: bold !important;
@@ -175,21 +192,22 @@ st.markdown(grid_html, unsafe_allow_html=True)
 # --- 6. KEYBOARD RENDERING ---
 st.write("---")
 
-# Hidden buttons for state management
-cols = st.columns(26)
-for i, char in enumerate([chr(i) for i in range(65, 91)]):
-    with cols[i]:
+# Create a container that we'll hide completely
+hidden_container = st.container()
+with hidden_container:
+    # Hidden buttons for state management
+    for char in [chr(i) for i in range(65, 91)]:
         if st.button(char, key=f"hidden_{char}", type="secondary"):
             handle_key_click(char)
             st.rerun()
-
-if st.button("ENTER", key="hidden_enter", type="secondary"):
-    handle_key_click("ENTER")
-    st.rerun()
     
-if st.button("⌫", key="hidden_back", type="secondary"):
-    handle_key_click("⌫")
-    st.rerun()
+    if st.button("ENTER", key="hidden_enter", type="secondary"):
+        handle_key_click("ENTER")
+        st.rerun()
+        
+    if st.button("⌫", key="hidden_back", type="secondary"):
+        handle_key_click("⌫")
+        st.rerun()
 
 # HTML Keyboard
 keyboard_html = """
@@ -364,13 +382,3 @@ components.html(keyboard_html + js_code, height=220)
 if st.session_state.game_over:
     st.write("")
     st.button("🔄 New Game", on_click=new_game, type="primary", use_container_width=True)
-
-# Hide the hidden buttons with CSS
-st.markdown("""
-<style>
-    /* Hide all the hidden state management buttons */
-    button[data-testid*="baseButton-secondary"] {
-        display: none !important;
-    }
-</style>
-""", unsafe_allow_html=True)
