@@ -142,13 +142,21 @@ st.markdown("""
         font-size: 1.1rem !important;
     }
 
-    /* Reduce spacing */
+    /* Eliminate spacing between elements */
     .stMarkdown {
-        margin-bottom: 0.5rem !important;
+        margin-bottom: 0 !important;
+        margin-top: 0 !important;
     }
     
     hr {
-        margin: 0.5rem 0 !important;
+        margin: 0 !important;
+        display: none !important;
+    }
+    
+    /* Remove padding from iframe container */
+    iframe {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
     }
 
     /* Hide visual noise */
@@ -199,6 +207,7 @@ while rows_rendered < 6:
 st.markdown(grid_html, unsafe_allow_html=True)
 
 # --- 6. KEYBOARD RENDERING ---
+# Render keyboard immediately after grid with no spacing
 
 # Create a container that we'll hide completely
 hidden_container = st.container()
@@ -259,7 +268,8 @@ keyboard_html = """
 </div>
 <style>
     .keyboard {
-        margin: 10px auto 0;
+        margin: 0 auto;
+        padding-top: 8px;
         max-width: 500px;
         user-select: none;
     }
@@ -304,7 +314,7 @@ keyboard_html = """
             margin-bottom: 4px;
         }
         .keyboard {
-            margin: 5px auto 0;
+            padding-top: 5px;
         }
     }
     @media (max-width: 400px) {
@@ -318,6 +328,9 @@ keyboard_html = """
         .keyboard-row {
             gap: 2px;
             margin-bottom: 3px;
+        }
+        .keyboard {
+            padding-top: 3px;
         }
     }
 </style>
