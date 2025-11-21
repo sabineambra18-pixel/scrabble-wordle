@@ -103,51 +103,6 @@ st.markdown("""
         max-width: 700px;
     }
 
-    /* --- KEYBOARD LAYOUT FIX --- */
-    /* We force the horizontal blocks (rows) to NEVER wrap */
-    [data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important;
-        gap: 4px !important;
-    }
-
-    /* We force the columns to be able to shrink below their "minimum" width */
-    [data-testid="column"] {
-        min-width: 0 !important;
-        flex: 1 1 0 !important;
-        width: auto !important;
-        padding: 0 !important;
-    }
-    
-    /* We force the widget container inside the column to shrink too */
-    [data-testid="element-container"] {
-        min-width: 0 !important;
-    }
-
-    /* BUTTON STYLES */
-    .stButton button {
-        width: 100% !important;
-        height: 55px !important;
-        padding: 0 !important;
-        font-weight: bold !important;
-        font-size: 1.2rem !important;
-        border-radius: 4px !important;
-        border: none !important;
-        margin: 0 !important;
-    }
-
-    /* MOBILE SPECIFIC OVERRIDES */
-    @media (max-width: 600px) {
-        /* Make buttons smaller and font tiny on mobile */
-        .stButton button {
-            height: 45px !important;
-            font-size: 12px !important;
-        }
-        /* Reduce gap between keys */
-        [data-testid="stHorizontalBlock"] {
-            gap: 2px !important;
-        }
-    }
-
     /* GRID STYLES */
     .wordle-row { display: flex; justify-content: center; gap: 4px; margin-bottom: 4px; }
     .letter-box {
@@ -161,6 +116,14 @@ st.markdown("""
     .absent  { background-color: #3a3a3c; border: 2px solid #3a3a3c; }
     .empty   { background-color: #c1e1ec; border: 2px solid #c1e1ec; color: black; }
     .active  { background-color: #c1e1ec; border: 2px solid #888; color: black; }
+
+    /* NEW GAME BUTTON */
+    .stButton button {
+        width: 100% !important;
+        height: 50px !important;
+        font-weight: bold !important;
+        font-size: 1.1rem !important;
+    }
 
     /* Hide visual noise */
     .stDeployButton, #MainMenu { display: none; }
@@ -211,95 +174,203 @@ st.markdown(grid_html, unsafe_allow_html=True)
 
 # --- 6. KEYBOARD RENDERING ---
 st.write("---")
-keys = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
 
-# Row 1
-cols = st.columns(10)
-for i, char in enumerate(keys[0]):
+# Hidden buttons for state management
+cols = st.columns(26)
+for i, char in enumerate([chr(i) for i in range(65, 91)]):
     with cols[i]:
-        if st.button(char, key=char):
+        if st.button(char, key=f"hidden_{char}", type="secondary"):
             handle_key_click(char)
             st.rerun()
 
-# Row 2
-cols = st.columns([0.4] + [1]*9 + [0.4])
-with cols[0]: st.write("")
-for i, char in enumerate(keys[1]):
-    with cols[i+1]:
-        if st.button(char, key=char):
-            handle_key_click(char)
-            st.rerun()
-with cols[-1]: st.write("")
+if st.button("ENTER", key="hidden_enter", type="secondary"):
+    handle_key_click("ENTER")
+    st.rerun()
+    
+if st.button("⌫", key="hidden_back", type="secondary"):
+    handle_key_click("⌫")
+    st.rerun()
 
-# Row 3
-cols = st.columns([1.5] + [1]*7 + [1.5])
-with cols[0]:
-    if st.button("ENTER", key="ENTER"):
-        handle_key_click("ENTER")
-        st.rerun()
-for i, char in enumerate(keys[2]):
-    with cols[i+1]:
-        if st.button(char, key=char):
-            handle_key_click(char)
-            st.rerun()
-with cols[-1]:
-    if st.button("⌫", key="BACK"):
-        handle_key_click("⌫")
-        st.rerun()
-
-if st.session_state.game_over:
-    st.write("")
-    st.button("🔄 New Game", on_click=new_game, type="primary", use_container_width=True)
+# HTML Keyboard
+keyboard_html = """
+<div class="keyboard">
+    <div class="keyboard-row">
+        <button class="key-btn" data-key="Q">Q</button>
+        <button class="key-btn" data-key="W">W</button>
+        <button class="key-btn" data-key="E">E</button>
+        <button class="key-btn" data-key="R">R</button>
+        <button class="key-btn" data-key="T">T</button>
+        <button class="key-btn" data-key="Y">Y</button>
+        <button class="key-btn" data-key="U">U</button>
+        <button class="key-btn" data-key="I">I</button>
+        <button class="key-btn" data-key="O">O</button>
+        <button class="key-btn" data-key="P">P</button>
+    </div>
+    <div class="keyboard-row">
+        <div style="flex: 0.5"></div>
+        <button class="key-btn" data-key="A">A</button>
+        <button class="key-btn" data-key="S">S</button>
+        <button class="key-btn" data-key="D">D</button>
+        <button class="key-btn" data-key="F">F</button>
+        <button class="key-btn" data-key="G">G</button>
+        <button class="key-btn" data-key="H">H</button>
+        <button class="key-btn" data-key="J">J</button>
+        <button class="key-btn" data-key="K">K</button>
+        <button class="key-btn" data-key="L">L</button>
+        <div style="flex: 0.5"></div>
+    </div>
+    <div class="keyboard-row">
+        <button class="key-btn wide-key" data-key="ENTER">ENTER</button>
+        <button class="key-btn" data-key="Z">Z</button>
+        <button class="key-btn" data-key="X">X</button>
+        <button class="key-btn" data-key="C">C</button>
+        <button class="key-btn" data-key="V">V</button>
+        <button class="key-btn" data-key="B">B</button>
+        <button class="key-btn" data-key="N">N</button>
+        <button class="key-btn" data-key="M">M</button>
+        <button class="key-btn wide-key" data-key="⌫">⌫</button>
+    </div>
+</div>
+<style>
+    .keyboard {
+        margin: 20px auto;
+        max-width: 500px;
+        user-select: none;
+    }
+    .keyboard-row {
+        display: flex;
+        justify-content: center;
+        gap: 4px;
+        margin-bottom: 6px;
+    }
+    .key-btn {
+        flex: 1;
+        min-width: 0;
+        height: 55px;
+        font-size: 15px;
+        font-weight: bold;
+        border: none;
+        border-radius: 4px;
+        background-color: #818384;
+        color: white;
+        cursor: pointer;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        transition: opacity 0.1s;
+    }
+    .key-btn.wide-key {
+        flex: 1.5;
+        font-size: 12px;
+    }
+    .key-btn:active {
+        opacity: 0.5;
+    }
+    @media (max-width: 600px) {
+        .key-btn {
+            height: 48px;
+            font-size: 13px;
+        }
+        .key-btn.wide-key {
+            font-size: 11px;
+        }
+        .keyboard-row {
+            gap: 3px;
+            margin-bottom: 4px;
+        }
+    }
+    @media (max-width: 400px) {
+        .key-btn {
+            height: 42px;
+            font-size: 11px;
+        }
+        .key-btn.wide-key {
+            font-size: 10px;
+        }
+        .keyboard-row {
+            gap: 2px;
+            margin-bottom: 3px;
+        }
+    }
+</style>
+"""
 
 # --- 7. JAVASCRIPT BRIDGE ---
 js_code = """
 <script>
     const letterStatus = %s;
     
-    function updateUI() {
-        const buttons = Array.from(window.parent.document.querySelectorAll('button'));
-        buttons.forEach(btn => {
-            const text = btn.innerText.trim();
+    function updateKeyboardColors() {
+        const keys = document.querySelectorAll('.key-btn');
+        keys.forEach(btn => {
+            const text = btn.getAttribute('data-key');
             
             if (letterStatus[text]) {
                 if (letterStatus[text] === 'correct') {
                     btn.style.backgroundColor = '#6aaa64';
-                    btn.style.color = 'white';
                 } else if (letterStatus[text] === 'present') {
                     btn.style.backgroundColor = '#c9b458';
-                    btn.style.color = 'white';
                 } else if (letterStatus[text] === 'absent') {
                     btn.style.backgroundColor = '#3a3a3c'; 
-                    btn.style.color = 'white';
                 }
             }
+            
             if (text === 'ENTER' || text === '⌫') {
                 btn.style.backgroundColor = '#d3d6da';
                 btn.style.color = 'black';
             }
         });
     }
-
-    function handleKey(e) {
+    
+    function handleKeyClick(key) {
+        const buttons = Array.from(window.parent.document.querySelectorAll('button'));
+        const targetBtn = buttons.find(btn => btn.innerText.trim() === key || btn.getAttribute('data-testid') === key);
+        if (targetBtn) {
+            targetBtn.click();
+        }
+    }
+    
+    // Click handlers for keyboard buttons
+    document.querySelectorAll('.key-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const key = this.getAttribute('data-key');
+            handleKeyClick(key);
+        });
+    });
+    
+    // Physical keyboard support
+    function handlePhysicalKey(e) {
         let key = e.key.toUpperCase();
         if (key === 'ENTER') key = 'ENTER';
         if (key === 'BACKSPACE') key = '⌫';
         
-        const buttons = Array.from(window.parent.document.querySelectorAll('button'));
-        const targetBtn = buttons.find(btn => btn.innerText.trim() === key);
-        
-        if (targetBtn) {
-            targetBtn.click();
+        if (key.match(/^[A-Z]$/) || key === 'ENTER' || key === '⌫') {
+            handleKeyClick(key);
             e.preventDefault();
         }
     }
-
-    window.parent.document.addEventListener('keydown', handleKey);
     
-    // Keep focus on the body
-    window.parent.document.body.focus();
-    setInterval(updateUI, 200);
+    window.parent.document.addEventListener('keydown', handlePhysicalKey);
+    
+    // Update colors periodically
+    setInterval(updateKeyboardColors, 200);
+    updateKeyboardColors();
 </script>
 """ % str(st.session_state.letter_status).replace("None", "null")
 
-components.html(js_code, height=0, width=0)
+components.html(keyboard_html + js_code, height=220)
+
+# NEW GAME BUTTON
+if st.session_state.game_over:
+    st.write("")
+    st.button("🔄 New Game", on_click=new_game, type="primary", use_container_width=True)
+
+# Hide the hidden buttons with CSS
+st.markdown("""
+<style>
+    /* Hide all the hidden state management buttons */
+    button[data-testid*="baseButton-secondary"] {
+        display: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
